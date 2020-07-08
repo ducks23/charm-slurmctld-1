@@ -10,7 +10,7 @@ from interface_slurm_cluster import SlurmClusterProvidesRelation
 from interface_slurmdbd import SlurmdbdRequiresRelation
 
 
-class SlumctldCharm(CharmBase):
+class SlurmctldCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
