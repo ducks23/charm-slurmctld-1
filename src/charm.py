@@ -31,4 +31,4 @@ class SlurmctldCharm(CharmBase):
 
 
 if __name__ == "__main__":
-    main(RequirerCharm)
+    main(SlurmctldCharm)
