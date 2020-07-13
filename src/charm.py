@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 import collections
+import json
 import logging
 
 from ops.charm import CharmBase
@@ -63,6 +64,9 @@ class SlurmdRequiresRelation(Object):
         self.charm = charm
         self._relation_name = relation_name
 
+        self._state.set_default(slurmd_acquired=False)
+        self._state.set_default(slurm_config=str())
+
         self.framework.observe(
             charm.on[self._relation_name].relation_created,
             self._on_relation_created
@@ -90,6 +94,9 @@ class SlurmdRequiresRelation(Object):
 
     def get_slurm_config(self):
         return self._state.slurm_config
+
+    def slurmd_acquired(self):
+        return self._state.slurmd_acquired
 
     @property
     def _partitions(self):
@@ -136,16 +143,17 @@ class SlurmdRequiresRelation(Object):
     def _on_relation_changed(self, event):
         logger.debug("################ LOGGING RELATION CHANGED ####################")
 
-        if self.charm.slurmdbd_acquired:
+        if self.charm.slurmdbd.slurmdbd_acquired:
 
             relation_unit_data = event.relation.data[self.model.unit]
+            slurmdbd_info = json.loads(self.charm.slurmdbd.get_slurmdbd_info())
 
             slurm_config = json.dumps({
                 'nodes': self._slurmd_node_data,
                 'partitions': self._partitions,
-                'slurmdbd_port': self.charm.slurmdbd_info['port'],
-                'slurmdbd_hostname': self.charm.slurmdbd_info['hostname'],
-                'slurmdbd_ingress_address': self.charm.slurmdbd_info['ingress_address'],
+                'slurmdbd_port': slurmdbd_info['port'],
+                'slurmdbd_hostname': slurmdbd_info['hostname'],
+                'slurmdbd_ingress_address': slurmdbd_info['ingress_address'],
                 'active_slurmctld_hostname': self.charm.slurm_ops_manager.hostname,
                 'active_slurmctld_ingress_address': relation_unit_data['ingress-address'],
                 'slurmctld_port': self.charm.slurm_ops_manager.port,
@@ -200,7 +208,7 @@ class SlurmctldCharm(CharmBase):
             event.defer()
         else:
             slurm_config = self.slurmd.get_slurm_config()
-            self.slurm_ops_manager.on._render_config_and_restart.emit(slurm_config)
+            self.slurm_ops_manager.on.configure_and_restart.emit(slurm_config)
             logger.debug(slurm_config)
             self.unit.status = ActiveStatus("Slurmctld Available")
 
