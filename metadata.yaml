@@ -13,10 +13,14 @@ tags:
 series:
     - focal
 
-provides:
-  slurm-cluster:
-    interface: slurm-cluster
-
 requires:
   slurmdbd:
     interface: slurmdbd
+  slurmd:
+    interface: slurmd
+
+resources:
+  slurm:
+    type: file
+    filename: slurm.tar.gz
+    description: slurm tarbal
