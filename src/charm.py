@@ -45,20 +45,17 @@ class SlurmdAvailableEvent(EventBase):
     """Emmited when slurmd is available."""
 
 
-class ConfigureEvent(EventBase):
-    """Emmited when slurm needs to check status and reconfigure."""
-
-
 class SlurmdRequiresEvents(ObjectEvents):
     """ SlurmClusterProviderRelationEvents"""
     slurmd_available = EventSource(SlurmdAvailableEvent)
     slurmd_unavailable = EventSource(SlurmdUnAvailableEvent)
-    configure = EventSource(ConfigureEvent)
 
 
 class SlurmdRequiresRelation(Object):
 
     on = SlurmdRequiresEvents()
+
+    _state = StoredState()
 
     def __init__(self, charm, relation_name):
         super().__init__(charm, relation_name)
@@ -91,11 +88,8 @@ class SlurmdRequiresRelation(Object):
             self._on_relation_broken
         )
 
-    def get_partitions(self):
-        return self._partitions
-
-    def get_slurmd_node_data(self):
-        return self._slurmd_node_data
+    def get_slurm_config(self):
+        return self._state.slurm_config
 
     @property
     def _partitions(self):
@@ -141,29 +135,45 @@ class SlurmdRequiresRelation(Object):
 
     def _on_relation_changed(self, event):
         logger.debug("################ LOGGING RELATION CHANGED ####################")
-        self.on.slurmd_available.emit()
+
+        if self.charm.slurmdbd_acquired:
+
+            relation_unit_data = event.relation.data[self.model.unit]
+
+            slurm_config = json.dumps({
+                'nodes': self._slurmd_node_data,
+                'partitions': self._partitions,
+                'slurmdbd_port': self.charm.slurmdbd_info['port'],
+                'slurmdbd_hostname': self.charm.slurmdbd_info['hostname'],
+                'slurmdbd_ingress_address': self.charm.slurmdbd_info['ingress_address'],
+                'active_slurmctld_hostname': self.charm.slurm_ops_manager.hostname,
+                'active_slurmctld_ingress_address': relation_unit_data['ingress-address'],
+                'slurmctld_port': self.charm.slurm_ops_manager.port,
+                **self.model.config,
+            })
+
+            event.relation.data[self.model.app]['slurm_config'] = slurm_config
+            self.charm.slurm_ops_manager.on.render_config_and_restart.emit(slurm_config)
+            self._state.slurm_config = slurm_config
+            self._state.slurmd_acquired = True
+        else:
+            self.charm.unit.status = BlockedStatus("Need relation to slurmdbd")
+            event.defer()
+            return
 
     def _on_relation_departed(self, event):
         logger.debug("################ LOGGING RELATION DEPARTED ####################")
 
     def _on_relation_broken(self, event):
         logger.debug("################ LOGGING RELATION BROKEN ####################")
+        self._state.slurmd_acquired = False
         self.on.slurmd_unavailable.emit()
 
 
 class SlurmctldCharm(CharmBase):
 
-    _state = StoredState()
-
     def __init__(self, *args):
         super().__init__(*args)
-
-        self._state.set_default(slurmdbd_acquired=False)
-        self._state.set_default(slurmdbd_info=dict())
-
-        self._state.set_default(slurmd_acquired=False)
-        self._state.set_default(nodes=list())
-        self._state.set_default(partitions=dict())
 
         self.slurm_ops_manager = SlurmOpsManager(self, "slurmctld")
 
@@ -171,67 +181,28 @@ class SlurmctldCharm(CharmBase):
         self.slurmd = SlurmdRequiresRelation(self, "slurmd")
         
         self.framework.observe(self.on.install, self._on_install)
-        self.framework.observe(self.on.start, self._on_start)
+        self.framework.observe(self.on.start, self._on_check_status_and_write_config)
 
-        self.framework.observe(self.slurmdbd.on.slurmdbd_available, self._on_slurmdbd_available)
-        self.framework.observe(self.slurmd.on.slurmd_available, self._on_slurmd_available)
-        self.framework.observe(self.slurmd.on.slurmd_unavailable, self._on_slurmd_unavailable)
-
-        self.framework.observe(self.slurmdbd.on.configure, self._on_check_status_and_write_config)
-        self.framework.observe(self.slurmd.on.configure, self._on_check_status_and_write_config)
+        self.framework.observe(self.slurmdbd.on.slurmdbd_available, self._on_check_status_and_write_config)
+        self.framework.observe(self.slurmd.on.slurmd_available, self._on_check_status_and_write_config)
+        self.framework.observe(self.slurmd.on.slurmd_unavailable, self._on_check_status_and_write_config)
 
     def _on_install(self, event):
         self.slurm_ops_manager.prepare_system_for_slurm()
         self.unit.status = ActiveStatus("Slurm Installed")
 
-    def _on_start(self, event):
-        self.slurmd.on.configure.emit()
-
-    def _on_config_changed(self, event):
-        self._on_check_status_and_write_config(event)
-
-    def _on_slurmdbd_available(self, event):
-        self._state.slurmdbd_info = event.slurmdbd_info
-        self._state.slurmdbd_acquired = True
-        self.slurmdbd.on.configure.emit()
-
-    def _on_slurmd_available(self, event):
-        self._state.nodes = self.slurmd.get_slurmd_node_data()
-        self._state.partitions = self.slurmd.get_partitions()
-        self._state.slurmd_acquired = True
-        self.slurmd.on.configure.emit()
-
-    def _on_slurmd_unavailable(self, event):
-        self._state.nodes = []
-        self._state.partitions = {}
-        self._state.slurmd_acquired = False
-        self.slurmd.on.configure.emit()
-
     def _on_check_status_and_write_config(self, event):
-        if not (self._state.slurmdbd_acquired and self._state.slurmd_acquired):
-            if not self._state.slurmdbd_acquired:
+        if not (self.slurmdbd.slurmdbd_acquired and self.slurmd.slurmd_acquired):
+            if not self.slurmdbd.slurmdbd_acquired:
                 self.unit.status = BlockedStatus("Slurm NOT AVAILABLE - NEED RELATION TO SLURMDBD")
             else:
                 self.unit.status = BlockedStatus("Slurm NOT AVAILABLE - NEED RELATION TO SLURMD")
             event.defer()
         else:
-            self._write_config_and_restart_slurmctld()
+            slurm_config = self.slurmd.get_slurm_config()
+            self.slurm_ops_manager.on._render_config_and_restart.emit(slurm_config)
+            logger.debug(slurm_config)
             self.unit.status = ActiveStatus("Slurmctld Available")
-
-    def _write_config_and_restart_slurmctld(self): 
-        slurmctld_config = {
-            'nodes': [node for node in self._state.nodes],
-            'partitions': {k:v for k,v in self._state.partitions.items()},
-            'slurmdbd_port': self._state.slurmdbd_info['port'],
-            'slurmdbd_hostname': self._state.slurmdbd_info['hostname'],
-            'slurmdbd_ingress_address': self._state.slurmdbd_info['ingress_address'],
-            **self.model.config,
-        }
-        self.framework.breakpoint("ratey-rat")
-        logger.debug("WRITING_CONFIG")
-        logger.debug(slurmctld_config)
-        #self.slurm_ops_manager.render_config_and_restart(slurmctld_config)
-        self.unit.status = ActiveStatus("Slurm Available - WRITING CONFIG")
 
 
 if __name__ == "__main__":
