@@ -95,6 +95,7 @@ class SlurmdRequiresRelation(Object):
     def get_slurm_config(self):
         return self._state.slurm_config
 
+    @property
     def slurmd_acquired(self):
         return self._state.slurmd_acquired
 
@@ -161,9 +162,10 @@ class SlurmdRequiresRelation(Object):
             })
 
             event.relation.data[self.model.app]['slurm_config'] = slurm_config
-            self.charm.slurm_ops_manager.on.render_config_and_restart.emit(slurm_config)
+            #self.charm.slurm_ops_manager.on.render_config_and_restart.emit(slurm_config)
             self._state.slurm_config = slurm_config
             self._state.slurmd_acquired = True
+            self.on.slurmd_available.emit()
         else:
             self.charm.unit.status = BlockedStatus("Need relation to slurmdbd")
             event.defer()
@@ -207,8 +209,14 @@ class SlurmctldCharm(CharmBase):
                 self.unit.status = BlockedStatus("Slurm NOT AVAILABLE - NEED RELATION TO SLURMD")
             event.defer()
         else:
-            slurm_config = self.slurmd.get_slurm_config()
-            self.slurm_ops_manager.on.configure_and_restart.emit(slurm_config)
+
+            try:
+                slurm_config = json.loads(self.slurmd.get_slurm_config())
+            except json.JSONDecodeError as e:
+                logger.debug(e)
+       
+            #self.slurm_ops_manager.on.configure_and_restart.emit(slurm_config)
+            self.slurm_ops_manager.render_config_and_restart(slurm_config)
             logger.debug(slurm_config)
             self.unit.status = ActiveStatus("Slurmctld Available")
 
