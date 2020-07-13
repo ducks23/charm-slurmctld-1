@@ -118,21 +118,16 @@ class SlurmdRequiresRelation(Object):
         """
         relations = self.framework.model.relations['slurmd']
 
-        node_info_keys = [
-            'ingress-address',
-            'hostname',
-            'partition',
-            'inventory',
-            'default',
-        ]
-
         nodes_info = list()
         for relation in relations:
             for unit in relation.units:
-                nodes_info.append(dict_keys_without_hyphens({
-                    k: relation.data[unit][k]
-                    for k in node_info_keys
-                }))
+                nodes_info.append({
+                    'ingress_address': relation.data[unit]['ingress-address'],
+                    'hostname': relation.data[unit]['hostname'],
+                    'partition': relation.data[unit]['partition'],
+                    'inventory': json.loads(relation.data[unit]['inventory']),
+                    'default': relation.data[unit]['default'],
+                })
         return nodes_info
 
     def _on_relation_created(self, event):
@@ -148,18 +143,20 @@ class SlurmdRequiresRelation(Object):
 
             relation_unit_data = event.relation.data[self.model.unit]
             slurmdbd_info = json.loads(self.charm.slurmdbd.get_slurmdbd_info())
+            nodes = self._slurmd_node_data
 
             slurm_config = json.dumps({
-                'nodes': self._slurmd_node_data,
+                'nodes': nodes,
                 'partitions': self._partitions,
                 'slurmdbd_port': slurmdbd_info['port'],
                 'slurmdbd_hostname': slurmdbd_info['hostname'],
                 'slurmdbd_ingress_address': slurmdbd_info['ingress_address'],
-                'active_slurmctld_hostname': self.charm.slurm_ops_manager.hostname,
-                'active_slurmctld_ingress_address': relation_unit_data['ingress-address'],
-                'slurmctld_port': self.charm.slurm_ops_manager.port,
+                'active_controller_hostname': self.charm.slurm_ops_manager.hostname,
+                'active_controller_ingress_address': relation_unit_data['ingress-address'],
+                'active_controller_port': self.charm.slurm_ops_manager.port,
                 **self.model.config,
             })
+            logger.debug(slurm_config)
 
             event.relation.data[self.model.app]['slurm_config'] = slurm_config
             #self.charm.slurm_ops_manager.on.render_config_and_restart.emit(slurm_config)
