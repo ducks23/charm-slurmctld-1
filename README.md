@@ -10,16 +10,19 @@ Requirements
 - juju 2.8.1
 - charmcraft
 
+
 Quickstart
 ----------
-
 ```bash
-charmcraft build
-juju deploy ./slurmctld.charm --resource slurm=/path/to/slurm/binary/
-juju relate slurmd slurmctld
-juju relate slurmdbd slurmctld
+juju deploy slurmctld
 ```
 
+## Development
+```bash
+git clone git@github.com:omnivector-solutions/charm-slurmctld && cd charm-slurmctld
+charmcraft build
+juju deploy ./slurmctld.charm --resource slurm=/path/to/slurm.tar.gz
+```
 Interfaces
 ----------
 - https://github.com/omnivector-solutions/interface-slurmd
