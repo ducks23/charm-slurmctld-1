@@ -1,3 +1,4 @@
 ops
 git+https://github.com/omnivector-solutions/slurm-ops-manager.git@slurmctld_dev
 git+https://github.com/omnivector-solutions/operator-interface-slurmdbd.git@master
+git+https://github.com/omnivector-solutions/interface-slurmd.git@master
