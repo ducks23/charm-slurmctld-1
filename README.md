@@ -15,7 +15,7 @@ Quickstart
 
 ```bash
 charmcraft build
-juju deploy ./slurmd.charm --resource slurm=/path/to/slurm/binary/
+juju deploy ./slurmctld.charm --resource slurm=/path/to/slurm/binary/
 juju relate slurmd slurmctld
 juju relate slurmdbd slurmctld
 ```
