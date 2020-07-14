@@ -64,6 +64,7 @@ class SlurmdRequiresRelation(Object):
         self.charm = charm
         self._relation_name = relation_name
 
+        self._state.set_default(munge_key_acquired=False)
         self._state.set_default(slurmd_acquired=False)
         self._state.set_default(slurm_config=str())
 
@@ -154,6 +155,7 @@ class SlurmdRequiresRelation(Object):
                 'active_controller_hostname': self.charm.slurm_ops_manager.hostname,
                 'active_controller_ingress_address': relation_unit_data['ingress-address'],
                 'active_controller_port': self.charm.slurm_ops_manager.port,
+                'munge_key': self.charm.slurm_ops_manager.get_munge_key(),
                 **self.model.config,
             })
             logger.debug(slurm_config)
