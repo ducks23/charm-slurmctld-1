@@ -1,0 +1,117 @@
+options:
+  mpi_default:
+    type: string
+    default: none
+    description: >-
+      'Identifies the default type of MPI to be used. Srun may override this
+      configuration parameter in any case. Currently supported versions include:
+      lam, mpich1_p4, mpich1_shmem, mpichgm, mpichmx, mvapich, none (default,
+      which works for many other versions of MPI) and openmpi. pmi2, More
+      information about MPI use is available here mpi_guide.'
+  kill_wait:
+    type: int
+    default: 30
+    description: >-
+      'The interval, in seconds, given to a job's processes between the SIGTERM
+      and SIGKILL signals upon reaching its time limit. If the job fails to
+      terminate gracefully in the interval specified, it will be forcibly
+      terminated. The default value is 30 seconds. The value may not exceed
+      65533.'
+  min_job_age:
+    type: int
+    default: 300
+    description: >-
+      "The minimum age of a completed job before its record is purged from
+      Slurm's active database. Set the values of MaxJobCount and to insure the
+      slurmctld daemon does not exhaust its memory or other resources. The
+      default value is 300 seconds. A value of zero prevents any job record
+      purging. In order to eliminate some possible race conditions, the minimum
+      non-zero value for MinJobAge recommended is 2."
+  slurmctld_timeout:
+    type: int
+    default: 120
+    description: >-
+      'The interval, in seconds, that the backup controller waits for the
+      primary controller to respond before assuming control. The default value
+      is 120 seconds. May not exceed 65533.'
+  slurmd_timeout:
+    type: int
+    default: 300
+    description: >-
+      'The interval, in seconds, that the Slurm controller waits for slurmd to
+      respond before configuring that node's state to DOWN. A value of zero
+      indicates the node will not be tested by slurmctld to confirm the state of
+      slurmd, the node will not be automatically set to a DOWN state indicating
+      a non-responsive slurmd, and some other tool will take responsibility for
+      monitoring the state of each compute node and its slurmd daemon. Slurm's
+      hierarchical communication mechanism is used to ping the slurmd daemons in
+      order to minimize system noise and overhead. The default value is 300
+      seconds. The value may not exceed 65533 seconds.'
+  scheduler_type:
+    type: string
+    default: sched/backfill
+    description: >-
+      'Identifies the type of scheduler to be used. Note the slurmctld daemon
+      must be restarted for a change in scheduler type to become effective
+      (reconfiguring a running daemon has no effect for this parameter). The
+      scontrol command can be used to manually change job priorities if desired.
+      Acceptable values include: sched/backfill For a backfill scheduling module
+      to augment the default FIFO scheduling. Backfill scheduling will initiate
+      lower-priority jobs if doing so does not delay the expected initiation
+      time of any higher priority job. Effectiveness of backfill scheduling is
+      dependent upon users specifying job time limits, otherwise all jobs will
+      have the same time limit and backfilling is impossible. Note documentation
+      for the SchedulerParameters option above. This is the default
+      configuration. sched/builtin This is the FIFO scheduler which initiates
+      jobs in priority order. If any job in the partition can not be scheduled,
+      no lower priority job in that partition will be scheduled. An exception is
+      made for jobs that can not run due to partition constraints (e.g. the time
+      limit) or down/drained nodes. In that case, lower priority jobs can be
+      initiated and not impact the higher priority job. sched/hold To hold all
+      newly arriving jobs if a file "/etc/slurm.hold" exists otherwise use the
+      built-in FIFO scheduler'
+  clustername:
+    type: string
+    default: cluster1
+    description: >-
+      Name to be recorded in database for jobs from this cluster.  This is
+      important if a single database is used to record information  from
+      multiple Slurm-managed clusters.
+  slurmctld_debug:
+    type: string
+    default: info
+    description: >-
+      "The level of detail to provide slurmctld daemon's logs. The default value
+      is info. If the slurmctld daemon is initiated with -v or --verbose
+      options, that debug level will be preserve or restored upon
+      reconfiguration."
+  slurmd_debug:
+    type: string
+    default: info
+    description: >-
+      "The level of detail to provide slurmd daemon's logs. The default value is
+      info."
+  select_type:
+    type: string
+    default: select/linear
+    description: >-
+      "What type of SelectType to use in the configuration file. The default
+      value is select/linear. Other possible values are select/cons_res,
+      select/cray, select/serial."
+  select_type_parameters:
+    type: string
+    default: CR_Core
+    description: >-
+            "What type of SelectTypeParameters to use. The default value is
+            CR_Core. Other possible values are CR_Core_Memory, CR_CPU, 
+            CR_CPU_Memory, CR_Socket, CR_Socket_Memory"
+  node_weight_criteria:
+    type: string
+    default: none
+    description: >-
+            "What type of node criteria to use for setting weights on nodes.
+            By default all nodes have Weight=1. When it is preferable to
+            allocate for example smaller memory nodes for smaller jobs, low
+            weights should be assigned to smaller nodes. Setting this charm
+            option will automatically order and weigh the nodes in ascending
+            order. Allowed values are RealMemory, CPUs and CoresPerSocket."
